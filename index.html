@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Self-Driving Car — Reinforcement Learning Simulation</title>
+    <meta name="description"
+        content="Browser-based reinforcement learning simulation where a toy car learns to navigate using Deep Q-Learning with TensorFlow.js">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+</head>
+
+<body>
+    <header id="app-header">
+        <div class="header-left">
+            <div class="logo-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 6v6l4 2" />
+                </svg>
+            </div>
+            <h1>Self-Driving Car <span class="accent">RL</span></h1>
+        </div>
+        <div class="header-center">
+            <div class="metric-pill" id="pill-episode">
+                <span class="pill-label">Episode</span>
+                <span class="pill-value" id="metric-episode">0</span>
+            </div>
+            <div class="metric-pill" id="pill-reward">
+                <span class="pill-label">Reward</span>
+                <span class="pill-value" id="metric-reward">0.00</span>
+            </div>
+            <div class="metric-pill" id="pill-epsilon">
+                <span class="pill-label">Epsilon</span>
+                <span class="pill-value" id="metric-epsilon">1.00</span>
+            </div>
+            <div class="metric-pill" id="pill-steps">
+                <span class="pill-label">Steps</span>
+                <span class="pill-value" id="metric-steps">0</span>
+            </div>
+            <div class="metric-pill" id="pill-best">
+                <span class="pill-label">Best</span>
+                <span class="pill-value" id="metric-best">-∞</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <button id="btn-theme-toggle" class="theme-toggle" title="Toggle Day/Night Mode">
+                <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="5" />
+                    <line x1="12" y1="1" x2="12" y2="3" />
+                    <line x1="12" y1="21" x2="12" y2="23" />
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                    <line x1="1" y1="12" x2="3" y2="12" />
+                    <line x1="21" y1="12" x2="23" y2="12" />
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+            </button>
+            <div class="status-indicator" id="status-indicator">
+                <div class="status-dot"></div>
+                <span id="status-text">Idle</span>
+            </div>
+        </div>
+    </header>
+    </header>
+
+    <div id="app-body" style="display: flex; flex: 1; overflow: hidden; width: 100%;">
+        <aside id="control-panel">
+            <div class="panel-header">
+                <h2>Controls</h2>
+                <div class="panel-actions"></div>
+            </div>
+            <div class="control-section">
+                <h3>Training Controls</h3>
+                <div class="btn-grid">
+                    <button id="btn-train" class="ctrl-btn primary">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="5 3 19 12 5 21 5 3" />
+                        </svg>
+                        Train
+                    </button>
+                    <button id="btn-stop" class="ctrl-btn danger" disabled>
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <rect x="6" y="6" width="12" height="12" rx="1" />
+                        </svg>
+                        Stop
+                    </button>
+                    <button id="btn-reset" class="ctrl-btn secondary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="1 4 1 10 7 10" />
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                        </svg>
+                        Reset
+                    </button>
+                    <button id="btn-draw" class="ctrl-btn accent">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 19l7-7 3 3-7 7-3-3z" />
+                            <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+                        </svg>
+                        Draw Map
+                    </button>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>Hyperparameters</h3>
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <label for="slider-epsilon">Exploration (ε)</label>
+                        <span class="slider-val" id="val-epsilon">1.00</span>
+                    </div>
+                    <input type="range" id="slider-epsilon" min="0" max="1" step="0.01" value="1.0">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <label for="slider-lr">Learning Rate</label>
+                        <span class="slider-val" id="val-lr">0.001</span>
+                    </div>
+                    <input type="range" id="slider-lr" min="0.0001" max="0.01" step="0.0001" value="0.001">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <label for="slider-gamma">Discount (γ)</label>
+                        <span class="slider-val" id="val-gamma">0.99</span>
+                    </div>
+                    <input type="range" id="slider-gamma" min="0.8" max="0.999" step="0.001" value="0.99">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <label>Sim Speed</label>
+                        <span class="slider-val" id="val-speed">1x</span>
+                    </div>
+                    <div class="speed-btn-row" id="speed-btn-row">
+                        <button class="speed-btn active" data-speed="1">1x</button>
+                        <button class="speed-btn" data-speed="2">2x</button>
+                        <button class="speed-btn" data-speed="5">5x</button>
+                        <button class="speed-btn" data-speed="10">10x</button>
+                        <button class="speed-btn" data-speed="20">20x</button>
+                        <button class="speed-btn" data-speed="50">50x</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>Reward Chart</h3>
+                <div class="chart-wrapper">
+                    <canvas id="reward-chart"></canvas>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>Car Telemetry</h3>
+                <div class="telemetry-grid" id="telemetry">
+                    <div class="telem-item">
+                        <span class="telem-label">Front</span>
+                        <div class="telem-bar-wrap">
+                            <div class="telem-bar" id="telem-front"></div>
+                        </div>
+                        <span class="telem-val" id="telem-val-front">0</span>
+                    </div>
+                    <div class="telem-item">
+                        <span class="telem-label">Back</span>
+                        <div class="telem-bar-wrap">
+                            <div class="telem-bar" id="telem-back"></div>
+                        </div>
+                        <span class="telem-val" id="telem-val-back">0</span>
+                    </div>
+                    <div class="telem-item">
+                        <span class="telem-label">Left</span>
+                        <div class="telem-bar-wrap">
+                            <div class="telem-bar" id="telem-left"></div>
+                        </div>
+                        <span class="telem-val" id="telem-val-left">0</span>
+                    </div>
+                    <div class="telem-item">
+                        <span class="telem-label">Right</span>
+                        <div class="telem-bar-wrap">
+                            <div class="telem-bar" id="telem-right"></div>
+                        </div>
+                        <span class="telem-val" id="telem-val-right">0</span>
+                    </div>
+                    <div class="telem-item">
+                        <span class="telem-label">F-Left</span>
+                        <div class="telem-bar-wrap">
+                            <div class="telem-bar" id="telem-fl"></div>
+                        </div>
+                        <span class="telem-val" id="telem-val-fl">0</span>
+                    </div>
+                    <div class="telem-item">
+                        <span class="telem-label">F-Right</span>
+                        <div class="telem-bar-wrap">
+                            <div class="telem-bar" id="telem-fr"></div>
+                        </div>
+                        <span class="telem-val" id="telem-val-fr">0</span>
+                    </div>
+                    <div class="telem-item">
+                        <span class="telem-label">Steering</span>
+                        <div class="telem-bar-wrap">
+                            <div class="telem-bar steering" id="telem-steer"></div>
+                        </div>
+                        <span class="telem-val" id="telem-val-steer">0°</span>
+                    </div>
+                    <div class="telem-item">
+                        <span class="telem-label">RPM</span>
+                        <div class="telem-bar-wrap">
+                            <div class="telem-bar rpm" id="telem-rpm"></div>
+                        </div>
+                        <span class="telem-val" id="telem-val-rpm">0</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main id="app-main">
+            <section id="sim-panel" class="panel" style="flex: 2.5;">
+                <div class="panel-header">
+                    <h2>Simulation Environment</h2>
+                    <div class="panel-actions">
+                        <button id="btn-zoom-in" class="icon-btn" title="Zoom In">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8" />
+                                <path d="M21 21l-4.35-4.35M11 8v6M8 11h6" />
+                            </svg>
+                        </button>
+                        <button id="btn-zoom-out" class="icon-btn" title="Zoom Out">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8" />
+                                <path d="M21 21l-4.35-4.35M8 11h6" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="canvas-wrapper" id="sim-canvas-wrapper">
+                    <canvas id="sim-canvas"></canvas>
+                    <div class="canvas-overlay" id="draw-overlay" style="display:none;">
+                        <div class="overlay-badge">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 19l7-7 3 3-7 7-3-3z" />
+                                <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+                            </svg>
+                            Draw Mode — Click to place walls, right-click to finish
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="nn-panel" class="panel" style="flex: 1;">
+                <div class="panel-header">
+                    <h2>Neural Network</h2>
+                    <div class="panel-actions">
+                        <span class="nn-info nn-info-editable" id="nn-arch-info"
+                            title="Click to edit network architecture">8 → 64 → 64 → 9</span>
+                    </div>
+                </div>
+                <div class="canvas-wrapper" id="nn-canvas-wrapper">
+                    <canvas id="nn-canvas"></canvas>
+                </div>
+            </section>
+            </section>
+        </main>
+    </div>
+
+    <!-- Network Architecture Editor Modal -->
+    <div id="nn-edit-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Network Architecture</h3>
+                <button id="nn-edit-close" class="icon-btn" title="Close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-desc">Define hidden layer sizes separated by commas. Input (8) and output (9) are fixed.
+                </p>
+                <div class="modal-input-group">
+                    <span class="modal-fixed">8 →</span>
+                    <input type="text" id="nn-edit-input" class="modal-input" value="64, 64"
+                        placeholder="e.g. 128, 64, 32">
+                    <span class="modal-fixed">→ 9</span>
+                </div>
+                <div class="modal-preview" id="nn-edit-preview">Architecture: 8 → 64 → 64 → 9</div>
+                <div class="modal-warning">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                        <line x1="12" y1="9" x2="12" y2="13" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                    This will reset the agent and all training progress!
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="nn-edit-cancel" class="ctrl-btn secondary">Cancel</button>
+                <button id="nn-edit-apply" class="ctrl-btn primary">Apply &amp; Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>
