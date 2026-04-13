@@ -81,7 +81,7 @@
             </div>
             <div class="control-section">
                 <h3>Training Controls</h3>
-                <div class="btn-grid">
+                <div class="btn-grid btn-grid-3">
                     <button id="btn-train" class="ctrl-btn primary">
                         <svg viewBox="0 0 24 24" fill="currentColor">
                             <polygon points="5 3 19 12 5 21 5 3" />
@@ -107,6 +107,16 @@
                             <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
                         </svg>
                         Draw Map
+                    </button>
+                    <button id="btn-random" class="ctrl-btn success">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M16 3h5v5" />
+                            <path d="M4 20L21 3" />
+                            <path d="M21 16v5h-5" />
+                            <path d="M15 15l6 6" />
+                            <path d="M4 4l5 5" />
+                        </svg>
+                        Random
                     </button>
                 </div>
             </div>
@@ -242,12 +252,44 @@
                 <div class="canvas-wrapper" id="sim-canvas-wrapper">
                     <canvas id="sim-canvas"></canvas>
                     <div class="canvas-overlay" id="draw-overlay" style="display:none;">
-                        <div class="overlay-badge">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M12 19l7-7 3 3-7 7-3-3z" />
-                                <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-                            </svg>
-                            Draw Mode — Click to place walls, right-click to finish
+                        <div class="draw-toolbar">
+                            <div class="draw-toolbar-section">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                    <path d="M12 19l7-7 3 3-7 7-3-3z" />
+                                    <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+                                </svg>
+                                <span class="draw-toolbar-title">Road Editor</span>
+                            </div>
+                            <div class="draw-toolbar-divider"></div>
+                            <div class="draw-toolbar-section">
+                                <label class="draw-toolbar-label">Width</label>
+                                <input type="range" id="draw-road-width" min="40" max="140" step="5" value="80" class="draw-slider">
+                                <span class="draw-slider-val" id="draw-road-width-val">80</span>
+                            </div>
+                            <div class="draw-toolbar-divider"></div>
+                            <div class="draw-toolbar-section">
+                                <button id="btn-draw-undo" class="draw-tool-btn" title="Undo last point">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="1 4 1 10 7 10" />
+                                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                                    </svg>
+                                </button>
+                                <button id="btn-draw-clear" class="draw-tool-btn" title="Clear all points">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                </button>
+                                <button id="btn-draw-apply" class="draw-tool-btn draw-tool-apply" title="Apply track">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="draw-toolbar-divider"></div>
+                            <div class="draw-toolbar-section">
+                                <span class="draw-toolbar-hint" id="draw-point-count">0 points</span>
+                            </div>
                         </div>
                     </div>
                 </div>

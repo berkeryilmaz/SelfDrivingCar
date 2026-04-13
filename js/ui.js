@@ -3,9 +3,7 @@ export class UI {
         this.rewardHistory = [];
         this.maxRewardHistory = 200;
         this.drawMode = false;
-        this.drawPoints = [];
-        this.drawPolygons = [];
-        this.currentPolygon = [];
+        this.drawCenterline = [];
 
         this.elements = {
             episode: document.getElementById('metric-episode'),
@@ -93,12 +91,12 @@ export class UI {
 
     setDrawing(active) {
         this.drawMode = active;
-        this.elements.drawOverlay.style.display = active ? 'grid' : 'none';
+        this.elements.drawOverlay.style.display = active ? 'flex' : 'none';
         this.elements.btnDraw.classList.toggle('active', active);
         this.elements.statusIndicator.className = 'status-indicator' + (active ? ' drawing' : '');
         this.elements.statusText.textContent = active ? 'Drawing' : 'Idle';
         if (!active) {
-            this.currentPolygon = [];
+            this.drawCenterline = [];
         }
     }
 
@@ -324,43 +322,146 @@ export class UI {
         }
     }
 
-    renderDrawPreview(ctx, scale = 1) {
+    renderDrawPreview(ctx, scale = 1, roadWidth = 80) {
         ctx.save();
         ctx.scale(scale, scale);
 
-        for (const poly of this.drawPolygons) {
-            if (poly.length < 2) continue;
-            ctx.beginPath();
-            ctx.moveTo(poly[0].x, poly[0].y);
-            for (let i = 1; i < poly.length; i++) {
-                ctx.lineTo(poly[i].x, poly[i].y);
-            }
-            ctx.closePath();
-            ctx.strokeStyle = '#feca57';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            ctx.fillStyle = 'rgba(254,202,87,0.1)';
-            ctx.fill();
-        }
+        const pts = this.drawCenterline;
 
-        if (this.currentPolygon.length > 0) {
-            ctx.beginPath();
-            ctx.moveTo(this.currentPolygon[0].x, this.currentPolygon[0].y);
-            for (let i = 1; i < this.currentPolygon.length; i++) {
-                ctx.lineTo(this.currentPolygon[i].x, this.currentPolygon[i].y);
+        if (pts.length >= 4) {
+            // Generate spline preview
+            const n = pts.length;
+            const splinePoints = [];
+            const segments = 8;
+            for (let i = 0; i < n; i++) {
+                const p0 = pts[(i - 1 + n) % n];
+                const p1 = pts[i];
+                const p2 = pts[(i + 1) % n];
+                const p3 = pts[(i + 2) % n];
+                for (let t = 0; t < segments; t++) {
+                    const s = t / segments;
+                    const s2 = s * s;
+                    const s3 = s2 * s;
+                    const x = 0.5 * (2 * p1.x + (-p0.x + p2.x) * s + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * s2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * s3);
+                    const y = 0.5 * (2 * p1.y + (-p0.y + p2.y) * s + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * s2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * s3);
+                    splinePoints.push({ x, y });
+                }
             }
-            ctx.strokeStyle = 'rgba(254,202,87,0.7)';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([5, 5]);
+
+            // Draw road width preview (semi-transparent fill)
+            const hw = roadWidth / 2;
+            const outerPts = [];
+            const innerPts = [];
+            const sn = splinePoints.length;
+            for (let i = 0; i < sn; i++) {
+                const prev = splinePoints[(i - 1 + sn) % sn];
+                const curr = splinePoints[i];
+                const next = splinePoints[(i + 1) % sn];
+                const tx = (next.x - prev.x);
+                const ty = (next.y - prev.y);
+                const tLen = Math.hypot(tx, ty) || 1;
+                const nx = -ty / tLen;
+                const ny = tx / tLen;
+                outerPts.push({ x: curr.x + nx * hw, y: curr.y + ny * hw });
+                innerPts.push({ x: curr.x - nx * hw, y: curr.y - ny * hw });
+            }
+
+            // Road fill
+            ctx.beginPath();
+            ctx.moveTo(outerPts[0].x, outerPts[0].y);
+            for (let i = 1; i < outerPts.length; i++) ctx.lineTo(outerPts[i].x, outerPts[i].y);
+            ctx.closePath();
+            ctx.moveTo(innerPts[0].x, innerPts[0].y);
+            for (let i = innerPts.length - 1; i >= 0; i--) ctx.lineTo(innerPts[i].x, innerPts[i].y);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(254, 202, 87, 0.08)';
+            ctx.fill('evenodd');
+
+            // Road edges
+            ctx.beginPath();
+            ctx.moveTo(outerPts[0].x, outerPts[0].y);
+            for (let i = 1; i < outerPts.length; i++) ctx.lineTo(outerPts[i].x, outerPts[i].y);
+            ctx.closePath();
+            ctx.strokeStyle = 'rgba(254, 202, 87, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
             ctx.stroke();
             ctx.setLineDash([]);
 
-            for (const p of this.currentPolygon) {
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-                ctx.fillStyle = '#feca57';
-                ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(innerPts[0].x, innerPts[0].y);
+            for (let i = 1; i < innerPts.length; i++) ctx.lineTo(innerPts[i].x, innerPts[i].y);
+            ctx.closePath();
+            ctx.strokeStyle = 'rgba(254, 202, 87, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Smooth centerline
+            ctx.beginPath();
+            ctx.moveTo(splinePoints[0].x, splinePoints[0].y);
+            for (let i = 1; i < splinePoints.length; i++) {
+                ctx.lineTo(splinePoints[i].x, splinePoints[i].y);
             }
+            ctx.closePath();
+            ctx.strokeStyle = 'rgba(254, 202, 87, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        } else if (pts.length >= 2) {
+            // Just draw lines between points (not enough for spline)
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) {
+                ctx.lineTo(pts[i].x, pts[i].y);
+            }
+            ctx.strokeStyle = 'rgba(254, 202, 87, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Draw control points with numbers
+        for (let i = 0; i < pts.length; i++) {
+            const p = pts[i];
+            // Outer ring
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+            ctx.fillStyle = i === 0 ? 'rgba(85, 239, 196, 0.3)' : 'rgba(254, 202, 87, 0.2)';
+            ctx.fill();
+            ctx.strokeStyle = i === 0 ? '#55efc4' : '#feca57';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Inner dot
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+            ctx.fillStyle = i === 0 ? '#55efc4' : '#feca57';
+            ctx.fill();
+
+            // Point number
+            ctx.fillStyle = 'rgba(255,255,255,0.8)';
+            ctx.font = '9px Inter';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(i + 1, p.x, p.y - 10);
+        }
+
+        // Instruction text at bottom
+        if (pts.length < 4) {
+            const canvasW = ctx.canvas.width / (scale * devicePixelRatio);
+            const canvasH = ctx.canvas.height / (scale * devicePixelRatio);
+            ctx.fillStyle = 'rgba(254, 202, 87, 0.6)';
+            ctx.font = '13px Inter';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            const needed = 4 - pts.length;
+            ctx.fillText(
+                `Click to place road centerline points (${needed} more needed)`,
+                canvasW / 2 / scale,
+                (canvasH - 20) / scale
+            );
         }
 
         ctx.restore();

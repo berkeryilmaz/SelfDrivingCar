@@ -458,6 +458,131 @@ body {
     box-shadow: 0 0 16px var(--warning-glow);
 }
 
+.ctrl-btn.success {
+    background: var(--bg-card);
+    border-color: var(--success);
+    color: var(--success);
+}
+.ctrl-btn.success:hover {
+    background: rgba(0, 206, 201, 0.1);
+    box-shadow: 0 4px 20px var(--success-glow);
+}
+
+.btn-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+/* ─── Draw Mode Toolbar ─── */
+.draw-toolbar {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 6px 14px;
+    background: rgba(18, 18, 26, 0.85);
+    border: 1px solid rgba(254, 202, 87, 0.25);
+    border-radius: 100px;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    z-index: 20;
+    pointer-events: auto;
+    animation: toolbar-slide-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+body[data-theme="light"] .draw-toolbar {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(224, 168, 0, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+@keyframes toolbar-slide-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.draw-toolbar-section {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 8px;
+}
+.draw-toolbar-section svg {
+    color: var(--warning);
+    flex-shrink: 0;
+}
+.draw-toolbar-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--warning);
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+.draw-toolbar-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+.draw-toolbar-hint {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+}
+.draw-toolbar-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+    flex-shrink: 0;
+}
+
+.draw-slider {
+    width: 80px;
+    height: 3px;
+}
+.draw-slider-val {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent-secondary);
+    min-width: 24px;
+    text-align: right;
+}
+
+.draw-tool-btn {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.05);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: all 0.15s ease;
+}
+.draw-tool-btn:hover {
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
+    background: rgba(108, 92, 231, 0.15);
+}
+.draw-tool-btn svg {
+    width: 14px;
+    height: 14px;
+}
+.draw-tool-btn.draw-tool-apply {
+    border-color: var(--success);
+    color: var(--success);
+}
+.draw-tool-btn.draw-tool-apply:hover {
+    background: rgba(0, 206, 201, 0.15);
+    box-shadow: 0 0 10px var(--success-glow);
+}
+
 /* ─── Sliders ─── */
 .slider-group {
     margin-bottom: 14px;

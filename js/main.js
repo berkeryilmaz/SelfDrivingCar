@@ -28,6 +28,11 @@ class Simulation {
         this.maxStepsPerEpisode = 1500;
         this.simSpeed = 1;
         this.scale = 1;
+        this.panX = 0;
+        this.panY = 0;
+        this.isPanning = false;
+        this.panStartX = 0;
+        this.panStartY = 0;
 
         this.wallSegments = this.environment.getWallSegments();
 
@@ -94,6 +99,9 @@ class Simulation {
         this.ui.elements.btnReset.addEventListener('click', () => this.resetAll());
         this.ui.elements.btnDraw.addEventListener('click', () => this.toggleDrawMode());
 
+        // Random path button
+        document.getElementById('btn-random').addEventListener('click', () => this.generateRandomPath());
+
         this.ui.elements.sliderEpsilon.addEventListener('input', (e) => {
             this.agent.setEpsilon(parseFloat(e.target.value));
         });
@@ -125,7 +133,72 @@ class Simulation {
         this.simCanvas.addEventListener('click', (e) => this.handleCanvasClick(e));
         this.simCanvas.addEventListener('contextmenu', (e) => this.handleCanvasRightClick(e));
 
+        // Middle mouse button panning
+        this.simCanvas.addEventListener('mousedown', (e) => {
+            if (e.button === 1) {
+                e.preventDefault();
+                this.isPanning = true;
+                this.panStartX = e.clientX - this.panX;
+                this.panStartY = e.clientY - this.panY;
+                this.simCanvas.style.cursor = 'grabbing';
+            }
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (this.isPanning) {
+                this.panX = e.clientX - this.panStartX;
+                this.panY = e.clientY - this.panStartY;
+            }
+        });
+        window.addEventListener('mouseup', (e) => {
+            if (e.button === 1 && this.isPanning) {
+                this.isPanning = false;
+                this.simCanvas.style.cursor = '';
+            }
+        });
+        // Prevent default middle-click scroll behavior
+        this.simCanvas.addEventListener('auxclick', (e) => {
+            if (e.button === 1) e.preventDefault();
+        });
+
+        // Draw toolbar controls
+        this.setupDrawToolbar();
+
         this.setupNetworkEditor();
+    }
+
+    setupDrawToolbar() {
+        const widthSlider = document.getElementById('draw-road-width');
+        const widthVal = document.getElementById('draw-road-width-val');
+        const pointCount = document.getElementById('draw-point-count');
+
+        widthSlider.addEventListener('input', () => {
+            widthVal.textContent = widthSlider.value;
+            this.drawRoadWidth = parseInt(widthSlider.value);
+        });
+        this.drawRoadWidth = parseInt(widthSlider.value);
+
+        document.getElementById('btn-draw-undo').addEventListener('click', () => {
+            if (this.ui.drawCenterline.length > 0) {
+                this.ui.drawCenterline.pop();
+                this.updateDrawPointCount();
+            }
+        });
+
+        document.getElementById('btn-draw-clear').addEventListener('click', () => {
+            this.ui.drawCenterline = [];
+            this.updateDrawPointCount();
+        });
+
+        document.getElementById('btn-draw-apply').addEventListener('click', () => {
+            this.applyDrawnTrack();
+        });
+    }
+
+    updateDrawPointCount() {
+        const el = document.getElementById('draw-point-count');
+        const n = this.ui.drawCenterline.length;
+        el.textContent = n + (n === 1 ? ' point' : ' points');
+        el.style.color = n >= 4 ? 'var(--success)' : 'var(--text-muted)';
     }
 
     setupNetworkEditor() {
@@ -230,42 +303,61 @@ class Simulation {
 
     handleCanvasClick(e) {
         if (!this.ui.drawMode) return;
+        // Don't capture clicks on toolbar buttons
+        if (e.target.closest('.draw-toolbar')) return;
         const rect = this.simCanvas.getBoundingClientRect();
-        const x = (e.clientX - rect.left) / this.scale;
-        const y = (e.clientY - rect.top) / this.scale;
-        this.ui.currentPolygon.push({ x, y });
+        const x = (e.clientX - rect.left - this.panX) / this.scale;
+        const y = (e.clientY - rect.top - this.panY) / this.scale;
+        this.ui.drawCenterline.push({ x, y });
+        this.updateDrawPointCount();
     }
 
     handleCanvasRightClick(e) {
         e.preventDefault();
         if (!this.ui.drawMode) return;
-
-        if (this.ui.currentPolygon.length >= 3) {
-            this.ui.drawPolygons.push([...this.ui.currentPolygon]);
-            this.ui.currentPolygon = [];
-
-            if (this.ui.drawPolygons.length >= 1) {
-                this.environment.setCustomWalls(this.ui.drawPolygons);
-                this.wallSegments = this.environment.getWallSegments();
-                this.resetEpisode();
-            }
+        // Right-click = apply track (shortcut)
+        if (this.ui.drawCenterline.length >= 4) {
+            this.applyDrawnTrack();
         }
+    }
+
+    applyDrawnTrack() {
+        if (this.ui.drawCenterline.length < 4) return;
+
+        // Smooth the centerline
+        const smoothed = this.environment.catmullRomSpline(this.ui.drawCenterline, 8);
+        const [outer, inner] = this.environment.buildTrackFromCenterline(smoothed, this.drawRoadWidth);
+
+        this.environment.setCustomWalls([outer, inner]);
+        this.wallSegments = this.environment.getWallSegments();
+
+        this.ui.setDrawing(false);
+        this.ui.drawCenterline = [];
+        this.updateDrawPointCount();
+        this.resetEpisode();
     }
 
     toggleDrawMode() {
         if (this.ui.drawMode) {
             this.ui.setDrawing(false);
-            if (this.ui.drawPolygons.length > 0) {
-                this.environment.setCustomWalls(this.ui.drawPolygons);
-                this.wallSegments = this.environment.getWallSegments();
-                this.resetEpisode();
-            }
+            this.ui.drawCenterline = [];
         } else {
             this.stopTraining();
-            this.ui.drawPolygons = [];
-            this.ui.currentPolygon = [];
+            this.ui.drawCenterline = [];
             this.ui.setDrawing(true);
+            this.updateDrawPointCount();
         }
+    }
+
+    generateRandomPath() {
+        this.stopTraining();
+        if (this.ui.drawMode) {
+            this.ui.setDrawing(false);
+            this.ui.drawCenterline = [];
+        }
+        this.environment.generateRandomTrack();
+        this.wallSegments = this.environment.getWallSegments();
+        this.resetEpisode();
     }
 
     startTraining() {
@@ -291,8 +383,7 @@ class Simulation {
         this.agent = new Agent(8, 9);
         this.environment.setDefaultMap();
         this.wallSegments = this.environment.getWallSegments();
-        this.ui.drawPolygons = [];
-        this.ui.currentPolygon = [];
+        this.ui.drawCenterline = [];
         this.resetEpisode();
         this.ui.updateMetrics(0, 0, 1.0, 0, -Infinity);
     }
@@ -394,26 +485,32 @@ class Simulation {
         ctx.fillStyle = simBg;
         ctx.fillRect(0, 0, w, h);
 
+        // Apply pan offset
+        ctx.translate(this.panX, this.panY);
+
         const gridSize = 40 * this.scale;
         ctx.strokeStyle = style.getPropertyValue('--sim-grid-color').trim();
         ctx.lineWidth = 0.5;
-        for (let x = 0; x < w; x += gridSize) {
+        // Draw grid with pan offset awareness
+        const gridOffsetX = this.panX % gridSize;
+        const gridOffsetY = this.panY % gridSize;
+        for (let x = -gridSize + gridOffsetX - this.panX; x < w - this.panX + gridSize; x += gridSize) {
             ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, h);
+            ctx.moveTo(x, -this.panY);
+            ctx.lineTo(x, h - this.panY);
             ctx.stroke();
         }
-        for (let y = 0; y < h; y += gridSize) {
+        for (let y = -gridSize + gridOffsetY - this.panY; y < h - this.panY + gridSize; y += gridSize) {
             ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(w, y);
+            ctx.moveTo(-this.panX, y);
+            ctx.lineTo(w - this.panX, y);
             ctx.stroke();
         }
 
         this.environment.render(ctx, this.scale);
 
         if (this.ui.drawMode) {
-            this.ui.renderDrawPreview(ctx, this.scale);
+            this.ui.renderDrawPreview(ctx, this.scale, this.drawRoadWidth || 80);
         }
 
         this.car.render(ctx, this.scale);
