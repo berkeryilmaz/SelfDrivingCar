@@ -33,6 +33,7 @@ class Simulation {
         this.isPanning = false;
         this.panStartX = 0;
         this.panStartY = 0;
+        this.draggedPointIndex = -1;
 
         this.wallSegments = this.environment.getWallSegments();
 
@@ -130,29 +131,38 @@ class Simulation {
             this.scale /= 1.2;
         });
 
-        this.simCanvas.addEventListener('click', (e) => this.handleCanvasClick(e));
         this.simCanvas.addEventListener('contextmenu', (e) => this.handleCanvasRightClick(e));
 
-        // Middle mouse button panning
         this.simCanvas.addEventListener('mousedown', (e) => {
-            if (e.button === 1) {
+            if (e.button === 1) { // Middle mouse button
                 e.preventDefault();
                 this.isPanning = true;
                 this.panStartX = e.clientX - this.panX;
                 this.panStartY = e.clientY - this.panY;
                 this.simCanvas.style.cursor = 'grabbing';
+            } else if (e.button === 0) { // Left mouse button
+                this.handleCanvasMouseDown(e);
             }
         });
+
         window.addEventListener('mousemove', (e) => {
             if (this.isPanning) {
                 this.panX = e.clientX - this.panStartX;
                 this.panY = e.clientY - this.panStartY;
+            } else if (this.draggedPointIndex !== -1 && this.ui.drawMode) {
+                const rect = this.simCanvas.getBoundingClientRect();
+                const x = (e.clientX - rect.left - this.panX) / this.scale;
+                const y = (e.clientY - rect.top - this.panY) / this.scale;
+                this.ui.drawCenterline[this.draggedPointIndex] = { x, y };
             }
         });
+
         window.addEventListener('mouseup', (e) => {
             if (e.button === 1 && this.isPanning) {
                 this.isPanning = false;
                 this.simCanvas.style.cursor = '';
+            } else if (e.button === 0) {
+                this.draggedPointIndex = -1;
             }
         });
         // Prevent default middle-click scroll behavior
@@ -301,15 +311,37 @@ class Simulation {
         modal.style.display = 'none';
     }
 
-    handleCanvasClick(e) {
+    handleCanvasMouseDown(e) {
         if (!this.ui.drawMode) return;
         // Don't capture clicks on toolbar buttons
         if (e.target.closest('.draw-toolbar')) return;
+
         const rect = this.simCanvas.getBoundingClientRect();
         const x = (e.clientX - rect.left - this.panX) / this.scale;
         const y = (e.clientY - rect.top - this.panY) / this.scale;
-        this.ui.drawCenterline.push({ x, y });
-        this.updateDrawPointCount();
+
+        const hitDist = 20 / this.scale;
+        let draggedIndex = -1;
+        let minDist = Infinity;
+
+        for (let i = 0; i < this.ui.drawCenterline.length; i++) {
+            const pt = this.ui.drawCenterline[i];
+            const dist = Math.hypot(pt.x - x, pt.y - y);
+            if (dist < hitDist && dist < minDist) {
+                minDist = dist;
+                draggedIndex = i;
+            }
+        }
+
+        if (draggedIndex !== -1) {
+            // Drag existing point
+            this.draggedPointIndex = draggedIndex;
+        } else {
+            // Add new point
+            this.ui.drawCenterline.push({ x, y });
+            this.updateDrawPointCount();
+            this.draggedPointIndex = this.ui.drawCenterline.length - 1;
+        }
     }
 
     handleCanvasRightClick(e) {
@@ -343,9 +375,17 @@ class Simulation {
             this.ui.drawCenterline = [];
         } else {
             this.stopTraining();
-            this.ui.drawCenterline = [];
+            this.ui.drawCenterline = this.environment.centerlineControlPoints ? 
+                this.environment.centerlineControlPoints.map(p => ({...p})) : [];
             this.ui.setDrawing(true);
             this.updateDrawPointCount();
+            
+            // Sync width slider
+            const widthSlider = document.getElementById('draw-road-width');
+            const widthVal = document.getElementById('draw-road-width-val');
+            widthSlider.value = this.environment.roadWidth || 80;
+            widthVal.textContent = widthSlider.value;
+            this.drawRoadWidth = parseInt(widthSlider.value);
         }
     }
 

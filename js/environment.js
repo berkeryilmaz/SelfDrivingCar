@@ -7,6 +7,7 @@ export class Environment {
         this.spawnAngle = 0;
         this.checkpoints = [];
         this.roadWidth = 80;
+        this.centerlineControlPoints = null;
         this.setDefaultMap();
     }
 
@@ -200,6 +201,8 @@ export class Environment {
                 y: cy + Math.sin(a) * r
             });
         }
+        
+        this.centerlineControlPoints = controlPoints.map(p => ({...p}));
 
         // Smooth the path
         const centerline = this.catmullRomSpline(controlPoints, 10);

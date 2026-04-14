@@ -15,6 +15,7 @@ export class Agent {
         this.maxBufferSize = 50000;
         this.targetUpdateFreq = 500;
         this.trainStepCount = 0;
+        this.isTraining = false;
 
         this.actions = this.buildActionSpace();
     }
@@ -55,49 +56,55 @@ export class Agent {
 
     async replay() {
         if (this.replayBuffer.length < this.batchSize) return;
-
-        const batch = [];
-        for (let i = 0; i < this.batchSize; i++) {
-            const idx = Math.floor(Math.random() * this.replayBuffer.length);
-            batch.push(this.replayBuffer[idx]);
-        }
-
-        const states = batch.map(e => e.state);
-        const nextStates = batch.map(e => e.nextState);
-
-        const currentQs = this.network.predict(states[0]);
-        const allCurrentQs = tf.tidy(() => {
-            return this.network.model.predict(tf.tensor2d(states));
-        });
-        const allNextQs = this.network.predictTarget(nextStates);
-
-        const currentQData = allCurrentQs.arraySync();
-        const nextQData = allNextQs.arraySync();
-
-        currentQs.dispose();
-        allCurrentQs.dispose();
-        allNextQs.dispose();
-
-        const targets = [];
-        for (let i = 0; i < this.batchSize; i++) {
-            const target = currentQData[i].slice();
-            if (batch[i].done) {
-                target[batch[i].action] = batch[i].reward;
-            } else {
-                const maxNextQ = Math.max(...nextQData[i]);
-                target[batch[i].action] = batch[i].reward + this.gamma * maxNextQ;
+        if (this.isTraining) return;
+        
+        this.isTraining = true;
+        try {
+            const batch = [];
+            for (let i = 0; i < this.batchSize; i++) {
+                const idx = Math.floor(Math.random() * this.replayBuffer.length);
+                batch.push(this.replayBuffer[idx]);
             }
-            targets.push(target);
+
+            const states = batch.map(e => e.state);
+            const nextStates = batch.map(e => e.nextState);
+
+            const currentQs = this.network.predict(states[0]);
+            const allCurrentQs = tf.tidy(() => {
+                return this.network.model.predict(tf.tensor2d(states));
+            });
+            const allNextQs = this.network.predictTarget(nextStates);
+
+            const currentQData = allCurrentQs.arraySync();
+            const nextQData = allNextQs.arraySync();
+
+            currentQs.dispose();
+            allCurrentQs.dispose();
+            allNextQs.dispose();
+
+            const targets = [];
+            for (let i = 0; i < this.batchSize; i++) {
+                const target = currentQData[i].slice();
+                if (batch[i].done) {
+                    target[batch[i].action] = batch[i].reward;
+                } else {
+                    const maxNextQ = Math.max(...nextQData[i]);
+                    target[batch[i].action] = batch[i].reward + this.gamma * maxNextQ;
+                }
+                targets.push(target);
+            }
+
+            await this.network.train(states, targets);
+
+            this.trainStepCount++;
+            if (this.trainStepCount % this.targetUpdateFreq === 0) {
+                this.network.updateTargetNetwork();
+            }
+
+            this.epsilon = Math.max(this.epsilonMin, this.epsilon * this.epsilonDecay);
+        } finally {
+            this.isTraining = false;
         }
-
-        await this.network.train(states, targets);
-
-        this.trainStepCount++;
-        if (this.trainStepCount % this.targetUpdateFreq === 0) {
-            this.network.updateTargetNetwork();
-        }
-
-        this.epsilon = Math.max(this.epsilonMin, this.epsilon * this.epsilonDecay);
     }
 
     setEpsilon(val) {
