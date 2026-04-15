@@ -25,7 +25,7 @@ class Simulation {
         this.stepCount = 0;
         this.episodeReward = 0;
         this.bestReward = -Infinity;
-        this.maxStepsPerEpisode = 1500;
+        this.maxStepsPerEpisode = 10000;
         this.simSpeed = 1;
         this.scale = 1;
         this.panX = 0;
