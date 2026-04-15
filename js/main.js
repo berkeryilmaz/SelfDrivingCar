@@ -17,7 +17,7 @@ class Simulation {
             this.environment.spawnPoint.y,
             this.environment.spawnAngle
         );
-        this.agent = new Agent(8, 9);
+        this.agent = new Agent();
         this.ui = new UI();
 
         this.training = false;
@@ -297,12 +297,11 @@ class Simulation {
         const { Agent } = await import('./agent.js');
         const { Network } = await import('./network.js');
         
-        this.agent = new Agent(8, 9);
+        this.agent = new Agent();
         this.agent.network.dispose();
 
-        this.agent.network = new Network(8, 9, parsed, parseFloat(this.ui.elements.sliderLR.value));
+        this.agent.network = new Network(8, this.agent.actionSize, parsed, parseFloat(this.ui.elements.sliderLR.value));
         this.agent.stateSize = 8;
-        this.agent.actionSize = 9;
 
         this.ui.elements.nnArchInfo.textContent = this.agent.network.getArchString();
         this.resetEpisode();
@@ -420,7 +419,7 @@ class Simulation {
         this.bestReward = -Infinity;
         this.ui.rewardHistory = [];
         this.agent.dispose();
-        this.agent = new Agent(8, 9);
+        this.agent = new Agent();
         this.environment.setDefaultMap();
         this.wallSegments = this.environment.getWallSegments();
         this.ui.drawCenterline = [];
@@ -569,7 +568,8 @@ class Simulation {
             this.nnCanvas,
             activations,
             weights,
-            this.agent.network.layerSizes
+            this.agent.network.layerSizes,
+            this.agent.actions
         );
     }
 

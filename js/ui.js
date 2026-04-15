@@ -154,7 +154,7 @@ export class UI {
         ctx.stroke();
     }
 
-    renderNeuralNetwork(canvas, activations, weights, layerSizes) {
+    renderNeuralNetwork(canvas, activations, weights, layerSizes, actions = null) {
         const ctx = canvas.getContext('2d');
         const rect = canvas.parentElement.getBoundingClientRect();
         canvas.width = rect.width * devicePixelRatio;
@@ -180,13 +180,34 @@ export class UI {
         const padding = 60;
         const layerSpacing = (w - padding * 2) / (numLayers - 1);
 
-        const maxNodesDisplay = 16;
+        const maxNodesDisplay = Math.max(16, actions ? actions.length : 16);
         const nodeRadius = 8;
 
         const nodePositions = [];
 
         const inputLabels = ['Front', 'Back', 'Left', 'Right', 'F-L', 'F-R', 'Steer', 'RPM'];
-        const outputLabels = ['L+Slow', 'L+Med', 'L+Fast', 'F+Slow', 'F+Med', 'F+Fast', 'R+Slow', 'R+Med', 'R+Fast'];
+        
+        // Dynamically build output labels if actions are provided
+        let outputLabels = [];
+        if (actions && actions.length > 0) {
+            outputLabels = actions.map(a => {
+                let dir = '';
+                if (a.steer <= -0.8) dir = 'L-Max';
+                else if (a.steer < 0) dir = 'L-Min';
+                else if (a.steer >= 0.8) dir = 'R-Max';
+                else if (a.steer > 0) dir = 'R-Min';
+                else dir = 'Fwd';
+
+                let speed = '';
+                if (a.throttle <= 0.4) speed = 'Slow';
+                else if (a.throttle <= 0.7) speed = 'Med';
+                else speed = 'Fast';
+
+                return `${dir} + ${speed}`;
+            });
+        } else {
+            outputLabels = ['L+Slow', 'L+Med', 'L+Fast', 'F+Slow', 'F+Med', 'F+Fast', 'R+Slow', 'R+Med', 'R+Fast'];
+        }
 
         for (let l = 0; l < numLayers; l++) {
             const numNodes = Math.min(layerSizes[l], maxNodesDisplay);

@@ -1,10 +1,13 @@
 import { Network } from './network.js';
 
 export class Agent {
-    constructor(stateSize = 8, actionSize = 9) {
+    constructor(stateSize = 8) {
         this.stateSize = stateSize;
-        this.actionSize = actionSize;
-        this.network = new Network(stateSize, actionSize, [64, 64], 0.001);
+
+        this.actions = this.buildActionSpace();
+        this.actionSize = this.actions.length;
+
+        this.network = new Network(stateSize, this.actionSize, [64, 64], 0.001);
 
         this.epsilon = 1.0;
         this.epsilonMin = 0.05;
@@ -16,12 +19,10 @@ export class Agent {
         this.targetUpdateFreq = 500;
         this.trainStepCount = 0;
         this.isTraining = false;
-
-        this.actions = this.buildActionSpace();
     }
 
     buildActionSpace() {
-        const steerings = [-1, 0, 1];
+        const steerings = [-1, -0.5, 0, 0.5, 1];
         const throttles = [0.3, 0.6, 1.0];
         const actions = [];
         for (const s of steerings) {
@@ -57,7 +58,7 @@ export class Agent {
     async replay() {
         if (this.replayBuffer.length < this.batchSize) return;
         if (this.isTraining) return;
-        
+
         this.isTraining = true;
         try {
             const batch = [];

@@ -13,7 +13,7 @@ export class Car {
         this.rpm = 0;
         this.speed = 0;
         this.maxSpeed = 3;
-        this.maxSteer = Math.PI / 6;
+        this.maxSteer = Math.PI / 4;
         this.width = 12;
         this.height = 24;
         this.alive = true;
